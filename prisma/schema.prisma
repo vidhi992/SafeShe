@@ -1,0 +1,295 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                      String            @id @default(uuid())
+  email                   String            @unique
+  password                String
+  name                    String
+  phone                   String?
+  role                    String            @default("USER") // USER, VERIFIED_HELPER, ADMIN
+  avatarUrl               String?
+  emergencyLanguage       String            @default("en")
+  notificationPref        String            @default("ALL") // ALL, SMS_ONLY, EMAIL_ONLY, MUTE
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  profile                 Profile?
+  trustedContacts         TrustedContact[]
+  journeys                Journey[]
+  emergencyEvents         EmergencyEvent[]
+  safetyReports           SafetyReport[]
+  evidences               Evidence[]
+  incidents               Incident[]
+  helper                  Helper?
+  notifications           Notification[]
+  privacySetting          PrivacySetting?
+  emergencyContacts       EmergencyContact[]
+}
+
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bloodGroup        String?
+  medicalNotes      String?
+  addressHome       String?
+  addressWork       String?
+  emergencyPin      String?  // Optional PIN to cancel SOS or unlock sensitive area
+  silentTriggerKey  String   @default("Alt+Shift+S")
+  voicePhrases      String   @default("help,emergency,bachao,madad")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model TrustedContact {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  phone         String
+  email         String
+  relationship  String
+  isVerified    Boolean  @default(true)
+  priority      Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Journey {
+  id                    String            @id @default(uuid())
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startLocationName     String
+  startLat              Float
+  startLng              Float
+  destinationName       String
+  destLat               Float
+  destLng               Float
+  status                String            @default("ACTIVE") // ACTIVE, COMPLETED, ANOMALY_DETECTED, SOS_TRIGGERED, CANCELLED
+  expectedArrival       DateTime
+  actualArrival         DateTime?
+  shareToken            String            @unique @default(uuid())
+  safetyScore           String            @default("MODERATE") // LOW, MODERATE, HIGH
+  routeDeviationCount   Int               @default(0)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  locations             JourneyLocation[]
+  emergencyEvents       EmergencyEvent[]
+}
+
+model JourneyLocation {
+  id          String   @id @default(uuid())
+  journeyId   String
+  journey     Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  lat         Float
+  lng         Float
+  accuracy    Float?
+  speed       Float?
+  heading     Float?
+  timestamp   DateTime @default(now())
+}
+
+model EmergencyEvent {
+  id              String             @id @default(uuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journeyId       String?
+  journey         Journey?           @relation(fields: [journeyId], references: [id], onDelete: SetNull)
+  type            String             @default("MANUAL_SOS") // MANUAL_SOS, SILENT_SOS, VOICE_SOS, DEVIATION_TIMEOUT, DELAY_TIMEOUT
+  status          String             @default("ACTIVE") // ACTIVE, RESOLVED, FALSE_ALARM, ESCALATED
+  lat             Float
+  lng             Float
+  locationName    String?
+  triggerNote     String?
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  incidentTimeline IncidentTimeline[]
+  emergencyCalls   EmergencyCall[]
+}
+
+model SafetyReport {
+  id             String   @id @default(uuid())
+  reporterId     String?
+  reporter       User?    @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+  category       String   // Harassment, Stalking, Poor lighting, Isolated area, Unsafe transport, Suspicious activity, Infrastructure, Other
+  description    String
+  locationName   String
+  lat            Float
+  lng            Float
+  isAnonymous    Boolean  @default(false)
+  status         String   @default("APPROVED") // PENDING, APPROVED, REJECTED
+  incidentDate   DateTime @default(now())
+  imageUrl       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Evidence {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId      String?
+  incident        Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  title           String
+  description     String?
+  fileType        String    // image/jpeg, audio/mp3, video/mp4, application/pdf
+  fileSize        Int
+  fileUrl         String
+  cryptoHash      String    // SHA-256 integrity hash
+  isPrivate       Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Incident {
+  id                String             @id @default(uuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title             String
+  incidentType      String             // Harassment, Stalking, Physical Threat, Attempted Theft, Domestic, Other
+  date              DateTime
+  timeApprox        String
+  locationName      String
+  lat               Float?
+  lng               Float?
+  peopleInvolved    String?
+  narrativeRaw      String
+  sequenceOfEvents  String
+  immediateAction   String?
+  aiReviewed        Boolean            @default(true)
+  status            String             @default("DRAFT") // DRAFT, CONFIRMED, FILED
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  evidences         Evidence[]
+  timelines         IncidentTimeline[]
+}
+
+model IncidentTimeline {
+  id               String          @id @default(uuid())
+  incidentId       String?
+  incident         Incident?       @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  emergencyEventId String?
+  emergencyEvent   EmergencyEvent? @relation(fields: [emergencyEventId], references: [id], onDelete: SetNull)
+  timestamp        DateTime        @default(now())
+  title            String
+  description      String
+  category         String          @default("SYSTEM") // JOURNEY, ANOMALY, SOS, NOTIFICATION, EVIDENCE, AI
+}
+
+model Helper {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization         String
+  area                 String
+  contactMethod        String   @default("PHONE") // PHONE, EMAIL, IN_APP
+  isAvailable          Boolean  @default(true)
+  isVerified           Boolean  @default(false)
+  verificationDocUrl   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model EmergencyResource {
+  id              String   @id @default(uuid())
+  name            String
+  category        String   // NATIONAL_EMERGENCY, POLICE, HOSPITAL, TRAUMA_CENTER, ONE_STOP_CENTRE, LEGAL_SUPPORT, WOMEN_SUPPORT, SHELTER, COUNSELLING, OTHER
+  state           String   @default("National")
+  district        String   @default("National")
+  city            String   @default("National")
+  address         String
+  lat             Float
+  lng             Float
+  phone           String?
+  alternatePhone  String?
+  website         String?
+  description     String?
+  services        String?  // e.g., Medical, Legal aid, Counselling, Temporary shelter
+  availability    String   @default("Availability: Not specified")
+  source          String   @default("Official Government Directory / OpenStreetMap")
+  verified        Boolean  @default(true)
+  lastVerifiedAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, WARNING, SOS_ALERT, ANOMALY
+  channel   String   @default("MOCK_SMS") // SMS, EMAIL, WHATSAPP, MOCK_SMS
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PrivacySetting {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareLocationWithHelper Boolean  @default(false)
+  allowVoiceTrigger       Boolean  @default(true)
+  allowAnonymousReporting Boolean  @default(true)
+  retentionDays           Int      @default(365)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model VerificationToken {
+  id        String   @id @default(uuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+}
+
+model EmergencyContact {
+  id               String          @id @default(uuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  relationship     String          // Mother, Father, Guardian, Brother/Sister, Other
+  phoneNumber      String          // E.164 format: +91XXXXXXXXXX
+  isVerified       Boolean         @default(false)
+  isEnabled        Boolean         @default(true)
+  priority         Int             @default(1)
+  otpCode          String?         // 6-digit verification code
+  otpExpiresAt     DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  emergencyCalls   EmergencyCall[]
+}
+
+model EmergencyCall {
+  id                 String            @id @default(uuid())
+  emergencyEventId   String?
+  emergencyEvent     EmergencyEvent?   @relation(fields: [emergencyEventId], references: [id], onDelete: SetNull)
+  emergencyContactId String?
+  emergencyContact   EmergencyContact? @relation(fields: [emergencyContactId], references: [id], onDelete: SetNull)
+  contactName        String
+  contactPhone       String
+  provider           String            @default("TWILIO") // TWILIO or DEMO_SIMULATOR
+  providerCallSid    String?           @unique
+  status             String            @default("QUEUED") // QUEUED, INITIATED, RINGING, ANSWERED, COMPLETED, FAILED, NO_ANSWER, BUSY
+  initiatedAt        DateTime          @default(now())
+  answeredAt         DateTime?
+  completedAt        DateTime?
+  failureReason      String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
