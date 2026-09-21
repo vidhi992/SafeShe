@@ -28,9 +28,15 @@ export function Navbar({ user }: NavbarProps) {
   ];
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/signin');
-    router.refresh();
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.warn('Logout fetch warning:', e);
+    } finally {
+      setMenuOpen(false);
+      router.push('/signin');
+      router.refresh();
+    }
   }
 
   return (
