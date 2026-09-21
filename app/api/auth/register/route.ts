@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db, ensureDbInitialized } from '@/lib/db';
 import { createSession, hashPassword } from '@/lib/services/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    await ensureDbInitialized();
     const { name, email, password, confirmPassword, phone, emergencyLanguage, notificationPref, role } = await req.json();
 
     // 1. Server-side validations

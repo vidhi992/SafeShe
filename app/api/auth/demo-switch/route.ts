@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db, ensureDbInitialized } from '@/lib/db';
 import { createSession } from '@/lib/services/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    await ensureDbInitialized();
     const { role } = await req.json();
 
     let user = await db.user.findFirst({
