@@ -15,19 +15,21 @@ export async function POST(req: Request) {
     }
 
     const cleanedEmail = email.trim().toLowerCase();
-    console.log(`[AUTH] Login attempt for: ${cleanedEmail}`);
+    console.log(`[AUTH] Processing login attempt for email: ${cleanedEmail}`);
 
     const user = await db.user.findUnique({
       where: { email: cleanedEmail },
     });
 
     if (!user) {
+      console.warn(`[AUTH] User record not found in database for email: ${cleanedEmail}`);
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
     const isValid = await verifyPassword(password, user.password);
 
     if (!isValid) {
+      console.warn(`[AUTH] Password hash comparison failed for user ID: ${user.id}`);
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
     }
 
