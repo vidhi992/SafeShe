@@ -6,7 +6,7 @@
 
 SafeShe is a smart safety platform designed to help users assess risks, find safer routes, and access emergency-response features. Built to protect women across all three critical phases of personal safety: **BEFORE AN INCIDENT → DURING AN INCIDENT → AFTER AN INCIDENT**.
 
-🚀 **Live Demo:** [https://safe-she-6mvb.vercel.app/](https://safe-she-6mvb.vercel.app/)
+🚀 [**Live Demo**](https://safe-she-6mvb.vercel.app/)
 
 ---
 
